@@ -2,6 +2,8 @@
 
 A 3D gift website: a little castle island with ten "memories" to discover, a love letter, and a fireworks finale. It is built with Next.js, React Three Fiber and Three.js, and runs on phones and desktops.
 
+![Screenshots on a phone](preview.jpg)
+
 Every model is built in code from simple shapes, the music is generated in the browser, and the card illustrations are inline SVG. There are no image, model or audio files to download, so the site works offline once it's built.
 
 ## Run it

@@ -24,14 +24,9 @@ export default function Experience() {
   const [auto, setAuto] = useState(false);
   const [music, setMusic] = useState(false);
   const [dpr, setDpr] = useState<number | [number, number]>([1, 2]);
-  const [effects, setEffects] = useState(true);
-  // ?hq keeps full quality on any device (handy for screenshots); ?lq starts in the lighter mode.
-  const [forceHQ] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).has("hq"));
+  // ?lq starts at a lower resolution, for testing slower phones.
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).has("lq")) {
-      setDpr(1);
-      setEffects(false);
-    }
+    if (new URLSearchParams(window.location.search).has("lq")) setDpr(1);
   }, []);
   const tourRef = useRef(tour);
   tourRef.current = tour;
@@ -137,20 +132,17 @@ export default function Experience() {
         gl={{ antialias: true, powerPreference: "high-performance" }}
         onCreated={({ gl }) => {
           gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 0.92;
+          gl.toneMappingExposure = 1.0;
+          // Let the browser hand the 3D context back if the phone drops it, instead of staying black.
+          gl.domElement.addEventListener("webglcontextlost", (e) => e.preventDefault());
         }}
       >
         {/* Drop to a lighter mode on phones that can't keep up. */}
-        {!forceHQ && (
-          <PerformanceMonitor
-            onDecline={() => {
-              setDpr(1);
-              setEffects(false);
-            }}
-          />
-        )}
-        <Scene tour={tour} effects={effects} />
+        {/* Drop to a lower resolution on phones that can't keep up. */}
+        <PerformanceMonitor onDecline={() => setDpr(1)} />
+        <Scene tour={tour} />
       </Canvas>
+      <div className="vignette" aria-hidden />
       <Overlay
         tour={tour}
         auto={auto}

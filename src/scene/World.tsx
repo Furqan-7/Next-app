@@ -323,7 +323,23 @@ const LAMP_SPOTS: [number, number][] = [
   [3.0, -7.4],
 ];
 
+function makeGlowTexture() {
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const g = c.getContext("2d")!;
+  const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grd.addColorStop(0, "rgba(255,255,255,0.9)");
+  grd.addColorStop(0.35, "rgba(255,255,255,0.35)");
+  grd.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = grd;
+  g.fillRect(0, 0, 64, 64);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 function Lamps() {
+  const glowTex = useMemo(() => makeGlowTexture(), []);
   return (
     <group>
       {LAMP_SPOTS.map(([x, z], i) => (
@@ -340,6 +356,9 @@ function Lamps() {
             <sphereGeometry args={[0.17, 16, 12]} />
             <meshStandardMaterial color="#fff2cf" emissive="#ffd88a" emissiveIntensity={2.2} toneMapped={false} />
           </mesh>
+          <sprite position-y={2.2} scale={1.3}>
+            <spriteMaterial map={glowTex} color="#ffd88a" transparent opacity={0.75} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+          </sprite>
           <mesh position-y={2.42}>
             <coneGeometry args={[0.2, 0.2, 8]} />
             <meshStandardMaterial color="#3f3448" roughness={0.6} metalness={0.3} />

@@ -1,8 +1,6 @@
 "use client";
 
 import { Sparkles } from "@react-three/drei";
-import { Bloom, EffectComposer, ToneMapping, Vignette } from "@react-three/postprocessing";
-import { ToneMappingMode } from "postprocessing";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useRef } from "react";
 import * as THREE from "three";
@@ -71,25 +69,13 @@ function CameraRig({ tour }: { tour: TourState }) {
   return null;
 }
 
-/** Glow on lit windows, lamps and fireworks, filmic colour, and a soft vignette. */
-function Effects() {
-  return (
-    <EffectComposer multisampling={4} enableNormalPass={false}>
-      <Bloom mipmapBlur intensity={0.75} luminanceThreshold={1.35} luminanceSmoothing={0.2} radius={0.7} />
-      <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-      <Vignette offset={0.32} darkness={0.38} />
-    </EffectComposer>
-  );
-}
-
-export function Scene({ tour, effects = true }: { tour: TourState; effects?: boolean }) {
+export function Scene({ tour }: { tour: TourState }) {
   const finale = tour.phase === "finale";
   const castleLit = finale || tour.acted.castle != null;
   return (
     <>
       <Atmosphere dusk={finale} />
       <CameraRig tour={tour} />
-      {effects && <Effects />}
       <Hills />
       <Clouds />
       <Water />

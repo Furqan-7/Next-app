@@ -25,11 +25,11 @@ Edit **`src/story.ts`**. It holds:
 
 Nothing else needs to change.
 
-### Adding your own song
+### The song
 
-Put an MP3 file at **`public/song.mp3`** (that exact name) and it plays on a loop once she taps "Take the royal tour". If there's no file there, a built-in music-box tune plays instead.
+`public/song.mp3` is "Tum Ho Toh" (Saiyaara), cut from 0:24.2 to 1:14.55. That's the same section the reference video loops. It starts when she taps "Take the royal tour" and repeats with no gap.
 
-If the site is public, use a song you have the rights to share, such as a track you've bought a licence for or a royalty-free one.
+To use a different song, replace `public/song.mp3` (keep the name). If the file is missing, a built-in music-box tune plays instead. The song is commercially copyrighted, so a public site using it could get a takedown request; for anything beyond a personal gift, use a song you have the rights to.
 
 ## How it works
 

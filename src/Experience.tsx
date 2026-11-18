@@ -4,7 +4,7 @@ import { PerformanceMonitor } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { startMusic, stopMusic } from "@/lib/music";
+import { preloadMusic, startMusic, stopMusic } from "@/lib/music";
 import { FINALE, layout, WALK_SPEED, type V3 } from "@/scene/layout";
 import { routeLength } from "@/scene/paths";
 import { Scene } from "@/scene/Scene";
@@ -125,6 +125,7 @@ export default function Experience() {
   }, [auto, tour.phase, tour.stopPhase, tour.stopIndex, act, next]);
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
+  useEffect(() => preloadMusic(story.song), []);
 
   return (
     <main className="stage">

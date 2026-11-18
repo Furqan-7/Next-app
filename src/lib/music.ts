@@ -95,42 +95,69 @@ function startTune() {
 
 /* ---------- Your own song ---------- */
 
-let song: HTMLAudioElement | null = null;
-let mode: "unknown" | "file" | "tune" = "unknown";
+let songData: Promise<ArrayBuffer | null> | null = null;
+let songBuffer: AudioBuffer | null = null;
+let songSource: AudioBufferSourceNode | null = null;
+let mode: "unknown" | "loading" | "file" | "tune" = "unknown";
+let wantPlaying = false;
+
+/** Start downloading the song early so it's ready when she taps. */
+export function preloadMusic(songUrl?: string) {
+  if (typeof window === "undefined" || !songUrl || songData) return;
+  songData = fetch(songUrl)
+    .then((r) => (r.ok ? r.arrayBuffer() : null))
+    .catch(() => null);
+}
+
+function playSong() {
+  if (!ctx || !songBuffer || songSource) return;
+  const gain = ctx.createGain();
+  gain.gain.value = 0.9;
+  gain.connect(ctx.destination);
+  // A looping buffer source repeats with no gap, unlike an <audio> element.
+  songSource = ctx.createBufferSource();
+  songSource.buffer = songBuffer;
+  songSource.loop = true;
+  songSource.connect(gain);
+  songSource.start();
+}
 
 /**
- * Plays `songUrl` on a loop if that file exists, otherwise the built-in music-box tune.
+ * Plays `songUrl` on a seamless loop if that file exists, otherwise the built-in music-box tune.
  * Call it from a tap or click so the browser allows sound.
  */
 export function startMusic(songUrl?: string) {
   if (typeof window === "undefined") return;
+  wantPlaying = true;
   ensureContext();
+  if (mode === "file") return playSong();
   if (mode === "tune" || !songUrl) {
     mode = "tune";
-    startTune();
-    return;
+    return startTune();
   }
-  if (!song) {
-    song = new Audio(songUrl);
-    song.loop = true;
-    song.preload = "auto";
-    song.volume = 0.8;
-  }
-  song
-    .play()
-    .then(() => {
+  if (mode === "loading") return;
+  mode = "loading";
+  preloadMusic(songUrl);
+  songData!
+    .then((data) => {
+      if (!data || !ctx) throw new Error("no song");
+      return ctx.decodeAudioData(data);
+    })
+    .then((buf) => {
+      songBuffer = buf;
       mode = "file";
+      if (wantPlaying) playSong();
     })
     .catch(() => {
-      // No song file (or it can't be played): fall back to the built-in tune.
+      // No song file (or it can't be decoded): fall back to the built-in tune.
       mode = "tune";
-      song = null;
-      startTune();
+      if (wantPlaying) startTune();
     });
 }
 
+/** Pauses everything; startMusic() carries on from the same spot. */
 export function stopMusic() {
-  song?.pause();
+  wantPlaying = false;
   if (timer != null) window.clearInterval(timer);
   timer = null;
   void ctx?.suspend();

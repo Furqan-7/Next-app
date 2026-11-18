@@ -27,8 +27,8 @@ export interface Memory {
 }
 
 export const story = {
-  herName: "Aira",
-  hisName: "Kabir",
+  herName: "Rida",
+  hisName: "Zaid",
   introKicker: "A little kingdom for",
   introLine: "Someone built you a castle. Come in, the gates are waiting.",
   memories: [
@@ -120,6 +120,36 @@ export const story = {
    * If the file is missing, a built-in music-box tune plays instead.
    */
   song: "/song.mp3",
+  /**
+   * Your photos. Put them in public/photos and list them here in order.
+   * Tall and wide photos both work: frames and cards follow each photo's shape.
+   * Each switch below turns one place on or off.
+   */
+  photos: {
+    files: [
+      "/photos/rida-zaid-1.jpg",
+      "/photos/rida-zaid-2.jpg",
+      "/photos/rida-zaid-3.jpg",
+      "/photos/rida-zaid-4.jpg",
+      "/photos/rida-zaid-5.jpg",
+    ],
+    /** Each memory card shows a photo (they're used in order, repeating if there are fewer than 10). */
+    onCards: true,
+    /** The easel paints the first photo instead of the cartoon portrait. */
+    onEasel: true,
+    /** A photo wall after the letter, before the fireworks. */
+    galleryAtEnd: true,
+    galleryTitle: "Our little moments",
+    /** Framed photos hang on the front of the castle. */
+    inCastle: true,
+  },
 };
+
+/** The photo for memory card i (or null if photos are off for cards). */
+export function cardPhoto(i: number): string | null {
+  const f = story.photos.files;
+  if (!story.photos.onCards || f.length === 0) return null;
+  return f[i % f.length];
+}
 
 export type Story = typeof story;

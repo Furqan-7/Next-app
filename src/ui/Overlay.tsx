@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { story } from "@/story";
+import { cardPhoto, story } from "@/story";
 import type { TourState } from "@/scene/util";
 import { Illustration } from "./Illustrations";
 
@@ -17,6 +17,7 @@ export interface OverlayProps {
   onToggleAuto: () => void;
   onToggleMusic: () => void;
   onFinale: () => void;
+  onAfterLetter: () => void;
   onReplay: () => void;
   onLetter: () => void;
 }
@@ -28,7 +29,8 @@ export function Overlay(p: OverlayProps) {
   const [menu, setMenu] = useState(false);
   const found = Object.keys(tour.acted).length;
   const memory = story.memories[tour.stopIndex];
-  const inWorld = tour.phase === "tour" || tour.phase === "letter" || tour.phase === "finale";
+  const inWorld = tour.phase === "tour" || tour.phase === "letter" || tour.phase === "gallery" || tour.phase === "finale";
+  const photo = cardPhoto(tour.stopIndex);
 
   return (
     <div className="overlay">
@@ -100,8 +102,15 @@ export function Overlay(p: OverlayProps) {
       {tour.phase === "tour" && tour.stopPhase === "card" && (
         <div className="sheet-backdrop">
           <article className="card" data-testid="card">
-            <div className="card-art">
-              <Illustration id={memory.id} />
+            <div className={`card-art ${photo ? "has-photo" : ""}`}>
+              {photo ? (
+                <figure className="polaroid">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={photo} alt="" />
+                </figure>
+              ) : (
+                <Illustration id={memory.id} />
+              )}
             </div>
             <div className="card-body">
               <p className="kicker">{memory.kicker}</p>
@@ -124,12 +133,14 @@ export function Overlay(p: OverlayProps) {
             ))}
             <p className="sign">{story.letter.signOff}</p>
             <p className="script signature">{story.hisName}</p>
-            <button className="wide-btn" onClick={p.onFinale} data-testid="letter-continue">
+            <button className="wide-btn" onClick={p.onAfterLetter} data-testid="letter-continue">
               Continue
             </button>
           </article>
         </div>
       )}
+
+      {tour.phase === "gallery" && <Gallery onDone={p.onFinale} />}
 
       {tour.phase === "finale" && (
         <div className="finale">
@@ -251,5 +262,39 @@ function HoldButton({ label, onDone }: { label: string; onDone: () => void }) {
       <span className="ring" aria-hidden />
       {label}
     </button>
+  );
+}
+
+function Gallery({ onDone }: { onDone: () => void }) {
+  const [open, setOpen] = useState<string | null>(null);
+  return (
+    <div className="gallery" data-testid="gallery">
+      <h2 className="script gallery-title">{story.photos.galleryTitle}</h2>
+      <div className="gallery-grid">
+        {story.photos.files.map((src, i) => (
+          <button
+            key={src}
+            className="polaroid gallery-item"
+            style={{ ["--r" as string]: `${(i % 2 ? 1 : -1) * (1.5 + (i % 3))}deg`, animationDelay: `${0.15 + i * 0.12}s` }}
+            onClick={() => setOpen(src)}
+            aria-label={`Open photo ${i + 1}`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={src} alt="" loading="lazy" />
+          </button>
+        ))}
+      </div>
+      <div className="gallery-actions">
+        <button className="wide-btn" onClick={onDone} data-testid="gallery-continue">
+          Continue
+        </button>
+      </div>
+      {open && (
+        <div className="lightbox" onClick={() => setOpen(null)}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={open} alt="" />
+        </div>
+      )}
+    </div>
   );
 }

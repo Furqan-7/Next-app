@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { StopId } from "@/story";
 
-export type Phase = "intro" | "flyover" | "tour" | "letter" | "finale";
+export type Phase = "intro" | "flyover" | "tour" | "letter" | "gallery" | "finale";
 export type StopPhase = "travel" | "ready" | "acting" | "card";
 export type Acted = Partial<Record<StopId, number>>;
 

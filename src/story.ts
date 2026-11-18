@@ -121,18 +121,12 @@ export const story = {
    */
   song: "/song.mp3",
   /**
-   * Your photos. Put them in public/photos and list them here in order.
+   * Photos are off in this version. To add some, put them in public/photos,
+   * list them here in order, and turn on the places you want them.
    * Portrait (tall) photos look best. Each switch below turns one place on or off.
    */
   photos: {
-    files: [
-      "/photos/photo-1.jpg",
-      "/photos/photo-2.jpg",
-      "/photos/photo-3.jpg",
-      "/photos/photo-4.jpg",
-      "/photos/photo-5.jpg",
-      "/photos/photo-6.jpg",
-    ],
+    files: [] as string[],
     /** Each memory card shows a photo (they're used in order, repeating if there are fewer than 10). */
     onCards: false,
     /** The easel paints the first photo instead of the cartoon portrait. */

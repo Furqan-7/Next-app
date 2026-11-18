@@ -4,6 +4,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { ISLAND_RADIUS, WATER_Y } from "./layout";
+import { distanceToPath, NODES, SEGMENTS, type XZ } from "./paths";
 
 /* ---------- Sky, fog and light, with a day → dusk blend for the finale ---------- */
 
@@ -161,11 +162,8 @@ export function Island() {
         <cylinderGeometry args={[ISLAND_RADIUS + 1.2, ISLAND_RADIUS + 2.6, 0.9, 72]} />
         <meshStandardMaterial color="#f3dcc0" roughness={1} />
       </mesh>
-      {/* Path from the gates to the castle, and the plaza */}
-      <mesh position={[0, 0.012, 4.2]} rotation-x={-Math.PI / 2} receiveShadow>
-        <planeGeometry args={[2.2, 19.5]} />
-        <meshStandardMaterial color="#ecd9bf" roughness={1} />
-      </mesh>
+      {/* Footpaths linking every stop, and the plaza */}
+      <Paths />
       <mesh position={[0, 0.014, -5.2]} rotation-x={-Math.PI / 2} receiveShadow>
         <circleGeometry args={[3.4, 48]} />
         <meshStandardMaterial color="#efdcc4" roughness={1} />
@@ -180,14 +178,54 @@ export function Island() {
   );
 }
 
+const PATH_COLOR = "#ecd9bf";
+const isMain = (a: XZ, b: XZ) => a[0] === 0 && b[0] === 0;
+
+/** Stepping stones scattered along every path. */
 const PATH_STONES: [number, number, number][] = (() => {
   const out: [number, number, number][] = [];
-  for (let z = 13.5; z > -3; z -= 1.1) {
-    out.push([-0.45 + Math.sin(z * 2.1) * 0.15, z, 0.32]);
-    out.push([0.5 + Math.cos(z * 1.7) * 0.15, z - 0.5, 0.28]);
-  }
+  SEGMENTS.forEach(([a, b], si) => {
+    const dx = b[0] - a[0];
+    const dz = b[1] - a[1];
+    const len = Math.hypot(dx, dz);
+    const nx = -dz / len;
+    const nz = dx / len;
+    const half = isMain(a, b) ? 0.48 : 0.3;
+    for (let d = 0.6, k = 0; d < len - 0.3; d += 1.0, k++) {
+      const side = k % 2 ? 1 : -1;
+      const wob = Math.sin(d * 2.3 + si) * 0.1;
+      out.push([a[0] + (dx / len) * d + nx * (half * side + wob), a[1] + (dz / len) * d + nz * (half * side + wob), 0.24 + ((k + si) % 3) * 0.04]);
+    }
+  });
   return out;
 })();
+
+function Paths() {
+  return (
+    <group>
+      {SEGMENTS.map(([a, b], i) => {
+        const dx = b[0] - a[0];
+        const dz = b[1] - a[1];
+        const len = Math.hypot(dx, dz);
+        const w = isMain(a, b) ? 2.0 : 1.4;
+        return (
+          <group key={i} position={[(a[0] + b[0]) / 2, 0.012, (a[1] + b[1]) / 2]} rotation-y={Math.atan2(dx, dz)}>
+            <mesh rotation-x={-Math.PI / 2} receiveShadow>
+              <planeGeometry args={[w, len]} />
+              <meshStandardMaterial color={PATH_COLOR} roughness={1} />
+            </mesh>
+          </group>
+        );
+      })}
+      {Object.entries(NODES).map(([k, [x, z]]) => (
+        <mesh key={k} position={[x, 0.013, z]} rotation-x={-Math.PI / 2} receiveShadow>
+          <circleGeometry args={[x === 0 ? 1.0 : 0.7, 24]} />
+          <meshStandardMaterial color={PATH_COLOR} roughness={1} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
 
 /* ---------- Grass ---------- */
 
@@ -265,7 +303,8 @@ export function Grass({ count = 14000 }: { count?: number }) {
       const r = Math.sqrt(rnd()) * (ISLAND_RADIUS - 0.4);
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r;
-      if (Math.abs(x) < 1.35 && z > -8.6 && z < 14.2) continue;
+      if (Math.abs(x) < 1.25 && z > -8.6 && z < 16.2) continue;
+      if (distanceToPath(x, z) < 0.95) continue;
       if (x > -6.4 && x < 6.4 && z < -7.9) continue;
       if (GRASS_HOLES.some(([hx, hz, hr]) => (x - hx) ** 2 + (z - hz) ** 2 < hr * hr)) continue;
       const tall = 0.65 + rnd() * 0.7;
@@ -304,14 +343,14 @@ const TREES: [number, number, "pink" | "green", number][] = [
   [-13, -2, "pink", 1.1],
   [-12.5, 6.5, "green", 1],
   [-4.2, 11, "pink", 0.9],
-  [3.6, 10.5, "pink", 0.95],
+  [3.0, 11.6, "pink", 0.95],
   [-10.6, 10.4, "green", 1],
   [12.5, -8, "pink", 1.15],
   [-12, -10, "green", 1.05],
   [-6.5, -11.5, "pink", 1],
   [7.2, -9.5, "green", 0.95],
   [13.6, 7, "pink", 0.9],
-  [-3, -3.5, "green", 0.8],
+  [-6.5, 1.8, "green", 0.8],
   [9.5, 3.8, "pink", 0.85],
   [-8.5, 12, "pink", 0.9],
   [14.2, -5.6, "green", 0.85],

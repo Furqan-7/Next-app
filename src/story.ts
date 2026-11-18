@@ -114,6 +114,11 @@ export const story = {
     signOff: "Forever your loyal subject,",
   },
   finaleLine: "Long live my princess",
+  /**
+   * Background song. Put an .mp3 at public/song.mp3 and it plays on a loop.
+   * If the file isn't there, a built-in music-box tune plays instead.
+   */
+  song: "/song.mp3",
 };
 
 export type Story = typeof story;

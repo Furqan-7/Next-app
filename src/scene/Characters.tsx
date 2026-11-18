@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { story } from "@/story";
 import { emitHearts } from "./fx";
 import { boatPose, FINALE, layout, RIDE, WALK_SPEED, type V3 } from "./layout";
+import { route, type XZ } from "./paths";
 import { angleLerp, clamp01, easeInOut, shared, since, type TourState } from "./util";
 
 type Kind = "princess" | "prince";
@@ -51,6 +52,8 @@ export function Person({ kind, tour }: { kind: Kind; tour: TourState }) {
     sit: 0,
   });
   const dir = useRef(new THREE.Vector3());
+  // Waypoints along the footpaths to the current destination.
+  const nav = useRef<{ key: string; pts: XZ[] }>({ key: "", pts: [] });
 
   useFrame((clock, dtRaw) => {
     const dt = Math.min(dtRaw, 0.25);
@@ -78,16 +81,35 @@ export function Person({ kind, tour }: { kind: Kind; tour: TourState }) {
 
     let moving = false;
     const d = dir.current;
-    if (!riding) {
-      d.set(p.pos[0] - s.pos.x, 0, p.pos[2] - s.pos.z);
-      const dist = d.length();
+    if (riding) {
+      nav.current.key = "";
+    } else {
+      const key = p.pos.join(",");
+      if (nav.current.key !== key) {
+        nav.current = {
+          key,
+          pts: route([s.pos.x, s.pos.z], [p.pos[0], p.pos[2]], kind === "princess" ? -0.32 : 0.32),
+        };
+      }
+      const pts = nav.current.pts;
+      let wp: XZ = pts[0] ?? [p.pos[0], p.pos[2]];
+      d.set(wp[0] - s.pos.x, 0, wp[1] - s.pos.z);
+      let dist = d.length();
+      while (dist < 0.2 && pts.length > 1) {
+        pts.shift();
+        wp = pts[0];
+        d.set(wp[0] - s.pos.x, 0, wp[1] - s.pos.z);
+        dist = d.length();
+      }
       if (dist > 0.02) {
         const step = Math.min(dist, WALK_SPEED * dt);
         d.multiplyScalar(step / dist);
         s.pos.add(d);
-        moving = dist > 0.06;
+        moving = dist > 0.06 || pts.length > 1;
       }
-      s.pos.y += (p.pos[1] - s.pos.y) * Math.min(1, dt * 8);
+      // Only step up onto the gazebo, dock or dais on the final stretch.
+      const wantY = pts.length <= 1 ? p.pos[1] : 0;
+      s.pos.y += (wantY - s.pos.y) * Math.min(1, dt * 8);
     }
 
     let want = s.yaw;

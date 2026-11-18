@@ -59,8 +59,7 @@ function schedule() {
   }
 }
 
-export function startMusic() {
-  if (typeof window === "undefined") return;
+function ensureContext() {
   if (!ctx) {
     const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!AC) return;
@@ -80,8 +79,13 @@ export function startMusic() {
     delay.connect(fb).connect(delay);
     delay.connect(lp);
   }
+  // Resuming inside the tap keeps mobile browsers from blocking the sound.
   void ctx.resume();
-  if (timer != null) return;
+}
+
+function startTune() {
+  ensureContext();
+  if (!ctx || timer != null) return;
   nextTime = ctx.currentTime + 0.1;
   step = 0;
   bassBeat = 0;
@@ -89,7 +93,44 @@ export function startMusic() {
   timer = window.setInterval(schedule, 100);
 }
 
+/* ---------- Your own song ---------- */
+
+let song: HTMLAudioElement | null = null;
+let mode: "unknown" | "file" | "tune" = "unknown";
+
+/**
+ * Plays `songUrl` on a loop if that file exists, otherwise the built-in music-box tune.
+ * Call it from a tap or click so the browser allows sound.
+ */
+export function startMusic(songUrl?: string) {
+  if (typeof window === "undefined") return;
+  ensureContext();
+  if (mode === "tune" || !songUrl) {
+    mode = "tune";
+    startTune();
+    return;
+  }
+  if (!song) {
+    song = new Audio(songUrl);
+    song.loop = true;
+    song.preload = "auto";
+    song.volume = 0.8;
+  }
+  song
+    .play()
+    .then(() => {
+      mode = "file";
+    })
+    .catch(() => {
+      // No song file (or it can't be played): fall back to the built-in tune.
+      mode = "tune";
+      song = null;
+      startTune();
+    });
+}
+
 export function stopMusic() {
+  song?.pause();
   if (timer != null) window.clearInterval(timer);
   timer = null;
   void ctx?.suspend();

@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { startMusic, stopMusic } from "@/lib/music";
 import { FINALE, layout, WALK_SPEED, type V3 } from "@/scene/layout";
+import { routeLength } from "@/scene/paths";
 import { Scene } from "@/scene/Scene";
 import { now, type TourState } from "@/scene/util";
 import { story } from "@/story";
@@ -41,7 +42,7 @@ export default function Experience() {
     const l = layout[id];
     const dest = t.acted[id] != null && l.after ? l.after.princess : l.princess;
     const from = lastPos.current;
-    const dist = Math.hypot(dest[0] - from[0], dest[2] - from[2]);
+    const dist = routeLength([from[0], from[2]], [dest[0], dest[2]]);
     const ms = Math.max(1500, (dist / WALK_SPEED) * 1000 + 600);
     lastPos.current = dest;
     update({ ...t, phase: "tour", stopIndex: i, stopPhase: "travel" });
@@ -73,7 +74,7 @@ export default function Experience() {
   }, [goTo]);
 
   const start = useCallback(() => {
-    startMusic();
+    startMusic(story.song);
     setMusic(true);
     update({ ...tourRef.current, phase: "flyover" });
     schedule(() => update({ ...tourRef.current, phase: "tour", stopIndex: 0, stopPhase: "ready" }), 4300);
@@ -98,7 +99,7 @@ export default function Experience() {
   const toggleMusic = useCallback(() => {
     setMusic((m) => {
       if (m) stopMusic();
-      else startMusic();
+      else startMusic(story.song);
       return !m;
     });
   }, []);

@@ -25,6 +25,12 @@ Edit **`src/story.ts`**. It holds:
 
 Nothing else needs to change.
 
+### Adding your own song
+
+Put an MP3 file at **`public/song.mp3`** (that exact name) and it plays on a loop once she taps "Take the royal tour". If there's no file there, a built-in music-box tune plays instead.
+
+If the site is public, use a song you have the rights to share, such as a track you've bought a licence for or a royalty-free one.
+
 ## How it works
 
 | Part | File |
@@ -33,6 +39,7 @@ Nothing else needs to change.
 | On-screen UI: cards, controls, menu, letter, hold-to-crown button | `src/ui/Overlay.tsx`, `app/globals.css` |
 | Card illustrations (SVG) | `src/ui/Illustrations.tsx` |
 | Camera positions and where the characters stand at each stop | `src/scene/layout.ts` |
+| Footpath network, and the route-finding that keeps the characters on it | `src/scene/paths.ts` |
 | Sky, water, island, wind-swayed grass, trees, clouds | `src/scene/World.tsx` |
 | Castle, gates, rose garden, tea party, dragon, well, swan boat, easel, gazebo, throne | `src/scene/Props.tsx` |
 | Princess, prince and cat, with walking, hugging, kneeling and the boat ride | `src/scene/Characters.tsx` |

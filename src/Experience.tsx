@@ -97,6 +97,14 @@ export default function Experience() {
     goTo(0, { ...tourRef.current, acted: {} });
   }, [goTo]);
 
+  // After the letter: the photo wall if there is one, otherwise straight to the fireworks.
+  const afterLetter = useCallback(() => {
+    if (story.photos.galleryAtEnd && story.photos.files.length > 0) {
+      window.clearTimeout(timer.current);
+      update({ ...tourRef.current, phase: "gallery" });
+    } else finale();
+  }, [finale]);
+
   const letter = useCallback(() => {
     window.clearTimeout(timer.current);
     update({ ...tourRef.current, phase: "letter" });
@@ -155,6 +163,7 @@ export default function Experience() {
         onToggleAuto={() => setAuto((a) => !a)}
         onToggleMusic={toggleMusic}
         onFinale={finale}
+        onAfterLetter={afterLetter}
         onReplay={replay}
         onLetter={letter}
       />

@@ -6,6 +6,8 @@ import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { emitHearts, makeHeartGeometry } from "./fx";
 import { makeRoseGeometry } from "./rose";
+import { usePhotoTexture } from "./photos";
+import { story } from "@/story";
 import { boatPose } from "./layout";
 import { clamp01, easeInOut, easeOutBack, now, shared, since, type Acted } from "./util";
 
@@ -231,7 +233,42 @@ function StarEmblem(props: { position: [number, number, number] }) {
   );
 }
 
+/** A gold-framed photo with a little heart on top. Faces +z; origin at the centre of the photo. */
+function PhotoFrame({
+  url,
+  position,
+  rotationY = 0,
+  w = 1.0,
+  h = 1.25,
+}: {
+  url: string;
+  position: [number, number, number];
+  rotationY?: number;
+  w?: number;
+  h?: number;
+}) {
+  const tex = usePhotoTexture(url, w / h);
+  return (
+    <group position={position} rotation-y={rotationY}>
+      <RoundedBox args={[w + 0.2, h + 0.2, 0.08]} radius={0.03} material={goldMat} castShadow />
+      <mesh position-z={0.045}>
+        <planeGeometry args={[w + 0.06, h + 0.06]} />
+        <meshStandardMaterial color="#fff6f0" />
+      </mesh>
+      <mesh position-z={0.05}>
+        <planeGeometry args={[w, h]} />
+        {/* Unlit so the photo always shows its true colours. */}
+        {/* Keyed on the texture so the material rebuilds once the photo arrives. */}
+        <meshBasicMaterial key={tex?.uuid ?? "empty"} map={tex} color={tex ? "#ffffff" : "#f3dbe4"} toneMapped={false} />
+      </mesh>
+      <HeartBadge position={[0, h / 2 + 0.24, 0.02]} scale={0.45} />
+    </group>
+  );
+}
+
 export function Castle({ acted, lit }: P & { lit: boolean }) {
+  const framed = story.photos.inCastle && story.photos.files.length > 0;
+  const pic = (i: number) => story.photos.files[(i + 1) % story.photos.files.length];
   const windowMat = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
@@ -272,8 +309,12 @@ export function Castle({ acted, lit }: P & { lit: boolean }) {
   }, []);
 
   const frontWindows: [number, number, number, number][] = [
-    [-2.5, 1.9, 0.5, 0.75],
-    [2.5, 1.9, 0.5, 0.75],
+    ...(framed
+      ? []
+      : ([
+          [-2.5, 1.9, 0.5, 0.75],
+          [2.5, 1.9, 0.5, 0.75],
+        ] as [number, number, number, number][])),
     [-2.5, 4.3, 0.42, 0.6],
     [2.5, 4.3, 0.42, 0.6],
     [-1.2, 4.6, 0.36, 0.5],
@@ -340,6 +381,14 @@ export function Castle({ acted, lit }: P & { lit: boolean }) {
         <pointLight ref={doorGlow} position={[0, 1.6, 1]} color="#ffcf8a" intensity={0} distance={8} />
       </group>
       <StarEmblem position={[0, 3.75, -8.42]} />
+      {framed && (
+        <>
+          <PhotoFrame url={pic(0)} position={[-2.5, 2.4, -8.42]} w={1.1} h={1.4} />
+          <PhotoFrame url={pic(1)} position={[2.5, 2.4, -8.42]} w={1.1} h={1.4} />
+          <PhotoFrame url={pic(2)} position={[-4.6 + Math.sin(-0.35) * 1.3, 3.0, -8.9 + Math.cos(-0.35) * 1.3]} rotationY={-0.35} w={0.8} h={1.0} />
+          <PhotoFrame url={pic(3)} position={[4.6 + Math.sin(0.35) * 1.3, 3.0, -8.9 + Math.cos(0.35) * 1.3]} rotationY={0.35} w={0.8} h={1.0} />
+        </>
+      )}
       {/* Steps */}
       {[0, 1].map((i) => (
         <mesh key={i} position={[0, 0.1 + i * 0.12, -7.9 - i * 0.3]} receiveShadow castShadow>
@@ -348,8 +397,8 @@ export function Castle({ acted, lit }: P & { lit: boolean }) {
         </mesh>
       ))}
       {/* Towers */}
-      <Tower x={-4.6} z={-8.9} r={1.25} h={7.6} roofH={3.2} windowMat={windowMat} facing={-0.35} banner />
-      <Tower x={4.6} z={-8.9} r={1.25} h={7.6} roofH={3.2} windowMat={windowMat} facing={0.35} banner />
+      <Tower x={-4.6} z={-8.9} r={1.25} h={7.6} roofH={3.2} windowMat={windowMat} facing={-0.35} banner={!framed} windows={framed ? [0.68] : undefined} />
+      <Tower x={4.6} z={-8.9} r={1.25} h={7.6} roofH={3.2} windowMat={windowMat} facing={0.35} banner={!framed} windows={framed ? [0.68] : undefined} />
       <Tower x={-4.4} z={-14.0} r={1.15} h={8.8} roofH={3.4} windowMat={windowMat} facing={-0.9} roof={ROOF_ALT} />
       <Tower x={4.4} z={-14.0} r={1.15} h={8.8} roofH={3.4} windowMat={windowMat} facing={0.9} roof={ROOF_ALT} />
       <Tower x={0} z={-13.0} r={1.6} h={11.6} roofH={4.6} windowMat={windowMat} windows={[0.82]} balcony />
@@ -1108,7 +1157,9 @@ function makePortrait() {
 }
 
 export function Easel({ acted }: P) {
-  const tex = useMemo(() => makePortrait(), []);
+  const portrait = useMemo(() => makePortrait(), []);
+  const photo = usePhotoTexture(story.photos.onEasel ? story.photos.files[0] : null, 1.1 / 1.4);
+  const tex = photo ?? portrait;
   const paint = useRef<THREE.MeshBasicMaterial>(null!);
   const once = useOnce();
   useFrame(() => {
@@ -1144,7 +1195,7 @@ export function Easel({ acted }: P) {
       </mesh>
       <mesh position={[0, 1.55, 0.09]}>
         <planeGeometry args={[1.1, 1.4]} />
-        <meshBasicMaterial ref={paint} map={tex} transparent opacity={0} toneMapped={false} />
+        <meshBasicMaterial key={tex.uuid} ref={paint} map={tex} transparent opacity={0} toneMapped={false} />
       </mesh>
     </group>
   );

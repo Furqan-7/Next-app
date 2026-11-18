@@ -6,7 +6,7 @@ import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { emitHearts, makeHeartGeometry } from "./fx";
 import { makeRoseGeometry } from "./rose";
-import { usePhotoTexture } from "./photos";
+import { photoAspect, usePhotoTexture } from "./photos";
 import { story } from "@/story";
 import { boatPose } from "./layout";
 import { clamp01, easeInOut, easeOutBack, now, shared, since, type Acted } from "./util";
@@ -238,16 +238,18 @@ function PhotoFrame({
   url,
   position,
   rotationY = 0,
-  w = 1.0,
-  h = 1.25,
+  size = 1.3,
 }: {
   url: string;
   position: [number, number, number];
   rotationY?: number;
-  w?: number;
-  h?: number;
+  /** Length of the photo's longest side; the frame follows the photo's own shape. */
+  size?: number;
 }) {
-  const tex = usePhotoTexture(url, w / h);
+  const tex = usePhotoTexture(url, "fit");
+  const a = photoAspect(tex, 0.8);
+  const w = a >= 1 ? size : size * a;
+  const h = a >= 1 ? size / a : size;
   return (
     <group position={position} rotation-y={rotationY}>
       <RoundedBox args={[w + 0.2, h + 0.2, 0.08]} radius={0.03} material={goldMat} castShadow />
@@ -383,10 +385,10 @@ export function Castle({ acted, lit }: P & { lit: boolean }) {
       <StarEmblem position={[0, 3.75, -8.42]} />
       {framed && (
         <>
-          <PhotoFrame url={pic(0)} position={[-2.5, 2.4, -8.42]} w={1.1} h={1.4} />
-          <PhotoFrame url={pic(1)} position={[2.5, 2.4, -8.42]} w={1.1} h={1.4} />
-          <PhotoFrame url={pic(2)} position={[-4.6 + Math.sin(-0.35) * 1.3, 3.0, -8.9 + Math.cos(-0.35) * 1.3]} rotationY={-0.35} w={0.8} h={1.0} />
-          <PhotoFrame url={pic(3)} position={[4.6 + Math.sin(0.35) * 1.3, 3.0, -8.9 + Math.cos(0.35) * 1.3]} rotationY={0.35} w={0.8} h={1.0} />
+          <PhotoFrame url={pic(0)} position={[-2.5, 2.35, -8.42]} size={1.45} />
+          <PhotoFrame url={pic(1)} position={[2.5, 2.35, -8.42]} size={1.45} />
+          <PhotoFrame url={pic(2)} position={[-4.6 + Math.sin(-0.35) * 1.3, 3.0, -8.9 + Math.cos(-0.35) * 1.3]} rotationY={-0.35} size={1.1} />
+          <PhotoFrame url={pic(3)} position={[4.6 + Math.sin(0.35) * 1.3, 3.0, -8.9 + Math.cos(0.35) * 1.3]} rotationY={0.35} size={1.1} />
         </>
       )}
       {/* Steps */}

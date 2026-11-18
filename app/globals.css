@@ -505,12 +505,14 @@ button:focus-visible {
 }
 
 .card-art .polaroid {
-  width: min(62%, 220px);
+  max-width: 82%;
 }
 
 .card-art .polaroid img {
-  aspect-ratio: 4 / 5;
+  width: auto;
+  max-width: 100%;
   max-height: 30vh;
+  margin: 0 auto;
 }
 
 .gallery {
@@ -531,27 +533,27 @@ button:focus-visible {
 }
 
 .gallery-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px 14px;
+  /* Masonry columns, so tall and wide photos keep their shape. */
+  columns: 2;
+  column-gap: 14px;
   max-width: 520px;
   margin: 0 auto;
 }
 
 @media (min-width: 700px) {
   .gallery-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    columns: 3;
     max-width: 760px;
   }
 }
 
 .gallery-item {
+  display: inline-block;
+  width: 100%;
+  margin: 0 0 18px;
+  break-inside: avoid;
   cursor: zoom-in;
   animation: rise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-
-.gallery-item img {
-  aspect-ratio: 4 / 5;
 }
 
 .gallery-actions {

@@ -16,8 +16,12 @@ function cover(tex: THREE.Texture, aspect: number) {
   }
 }
 
-/** Loads a photo as a texture cropped to fit; null until it has loaded (or if url is empty). */
-export function usePhotoTexture(url: string | null | undefined, aspect: number) {
+/**
+ * Loads a photo as a texture; null until it has loaded (or if url is empty).
+ * With a number, the photo is cropped to that width / height. With "fit", it isn't cropped:
+ * read the photo's own shape with photoAspect().
+ */
+export function usePhotoTexture(url: string | null | undefined, aspect: number | "fit") {
   const [tex, setTex] = useState<THREE.Texture | null>(null);
   useEffect(() => {
     if (!url) return;
@@ -28,7 +32,7 @@ export function usePhotoTexture(url: string | null | undefined, aspect: number) 
         if (!alive) return;
         t.colorSpace = THREE.SRGBColorSpace;
         t.anisotropy = 4;
-        cover(t, aspect);
+        if (aspect !== "fit") cover(t, aspect);
         setTex(t);
       },
       undefined,
@@ -39,4 +43,9 @@ export function usePhotoTexture(url: string | null | undefined, aspect: number) 
     };
   }, [url, aspect]);
   return tex;
+}
+
+export function photoAspect(tex: THREE.Texture | null, fallback: number) {
+  const img = tex?.image as { width: number; height: number } | undefined;
+  return img ? img.width / img.height : fallback;
 }

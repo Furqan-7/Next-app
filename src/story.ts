@@ -122,26 +122,26 @@ export const story = {
   song: "/song.mp3",
   /**
    * Your photos. Put them in public/photos and list them here in order.
-   * Portrait (tall) photos look best. Each switch below turns one place on or off.
+   * Tall and wide photos both work: frames and cards follow each photo's shape.
+   * Each switch below turns one place on or off.
    */
   photos: {
     files: [
-      "/photos/photo-1.jpg",
-      "/photos/photo-2.jpg",
-      "/photos/photo-3.jpg",
-      "/photos/photo-4.jpg",
-      "/photos/photo-5.jpg",
-      "/photos/photo-6.jpg",
+      "/photos/rida-zaid-1.jpg",
+      "/photos/rida-zaid-2.jpg",
+      "/photos/rida-zaid-3.jpg",
+      "/photos/rida-zaid-4.jpg",
+      "/photos/rida-zaid-5.jpg",
     ],
     /** Each memory card shows a photo (they're used in order, repeating if there are fewer than 10). */
-    onCards: false,
+    onCards: true,
     /** The easel paints the first photo instead of the cartoon portrait. */
-    onEasel: false,
+    onEasel: true,
     /** A photo wall after the letter, before the fireworks. */
-    galleryAtEnd: false,
+    galleryAtEnd: true,
     galleryTitle: "Our little moments",
     /** Framed photos hang on the front of the castle. */
-    inCastle: false,
+    inCastle: true,
   },
 };
 

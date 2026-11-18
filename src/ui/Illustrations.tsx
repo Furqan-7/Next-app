@@ -39,13 +39,25 @@ const art: Record<StopId, React.ReactNode> = {
     </g>
   ),
   roses: (
-    <g stroke={INK} strokeWidth={2.5} strokeLinecap="round">
-      <path d="M100 135 C98 110 102 95 100 72" fill="none" stroke="#3f8f45" strokeWidth={4} />
-      <path d="M100 112 C85 104 80 110 76 98 C90 96 96 100 100 108Z" fill="#7cc36a" />
-      <path d="M100 100 C114 92 120 98 126 86 C112 84 104 88 100 96Z" fill="#7cc36a" />
-      <circle cx={100} cy={55} r={24} fill={DEEP} />
-      <path d="M90 50 C95 40 110 42 110 54 C110 62 98 64 96 56" fill="none" stroke="#a8204a" />
-      <Face x={100} y={60} s={0.7} />
+    <g strokeLinejoin="round" strokeLinecap="round">
+      {/* stem and leaves */}
+      <path d="M100 150 C97 128 103 112 100 92" fill="none" stroke="#3f8f45" strokeWidth={5} />
+      <path d="M100 132 C84 128 74 118 70 104 C86 104 96 114 100 126Z" fill="#6cbf5c" stroke="#3f8f45" strokeWidth={2} />
+      <path d="M100 116 C114 112 126 102 130 88 C114 88 104 98 100 110Z" fill="#6cbf5c" stroke="#3f8f45" strokeWidth={2} />
+      <path d="M86 96 L80 86 M114 96 L120 86 M100 98 L100 86" stroke="#3f8f45" strokeWidth={3} />
+      {/* outer petals */}
+      <path d="M62 62 C58 36 80 26 92 34 C84 46 78 66 82 86 C72 84 64 76 62 62Z" fill="#c8173f" />
+      <path d="M138 62 C142 36 120 26 108 34 C116 46 122 66 118 86 C128 84 136 76 138 62Z" fill="#c8173f" />
+      <path d="M70 70 C72 92 90 98 100 98 C110 98 128 92 130 70 C120 82 80 82 70 70Z" fill="#b01236" />
+      {/* middle petals */}
+      <path d="M74 54 C74 30 100 22 110 32 C96 36 88 48 88 66 C80 66 74 62 74 54Z" fill="#e0284f" />
+      <path d="M126 54 C126 32 104 26 96 34 C110 40 114 52 112 68 C120 66 126 62 126 54Z" fill="#e0284f" />
+      <path d="M80 62 C84 80 96 86 100 86 C104 86 116 80 120 62 C112 72 88 72 80 62Z" fill="#cc1d45" />
+      {/* inner swirl */}
+      <path d="M88 50 C88 36 112 34 112 50 C112 62 94 64 92 54 C91 46 104 44 104 52" fill="#f04a6c" stroke="#a8173b" strokeWidth={2} />
+      {/* highlights */}
+      <path d="M68 50 C70 40 76 34 84 32" fill="none" stroke="#ff8fa8" strokeWidth={2.5} opacity={0.8} />
+      <path d="M132 50 C130 40 124 34 116 32" fill="none" stroke="#ff8fa8" strokeWidth={2.5} opacity={0.8} />
     </g>
   ),
   tea: (

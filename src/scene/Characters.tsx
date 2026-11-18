@@ -1,16 +1,17 @@
 "use client";
 
 import { useFrame } from "@react-three/fiber";
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { story } from "@/story";
 import { emitHearts } from "./fx";
 import { boatPose, FINALE, layout, RIDE, WALK_SPEED, type V3 } from "./layout";
 import { route, type XZ } from "./paths";
+import { makeLeafGeometry, makeRoseGeometry } from "./rose";
 import { angleLerp, clamp01, easeInOut, shared, since, type TourState } from "./util";
 
 type Kind = "princess" | "prince";
-type Pose = "stand" | "kneel" | "hug";
+type Pose = "stand" | "kneel" | "hug" | "sit";
 
 const SKIN = "#f8d6c3";
 const HAIR = "#3b2420";
@@ -32,6 +33,7 @@ function plan(kind: Kind, tour: TourState): { pos: V3; face: V3; pose: Pose } {
   let pose: Pose = "stand";
   if (acted && id === "throne" && kind === "prince") pose = "kneel";
   if (acted && id === "gazebo" && tour.stopPhase !== "travel") pose = "hug";
+  if (id === "tea" && tour.stopPhase !== "travel") pose = "sit";
   return { pos: spot[kind], face, pose };
 }
 
@@ -69,11 +71,12 @@ export function Person({ kind, tour }: { kind: Kind; tour: TourState }) {
       const e = since(tour.acted, "swan");
       if (e != null && e > RIDE.board && e < RIDE.end) {
         const bp = boatPose(e, t);
-        const ox = kind === "princess" ? -0.26 : 0.26;
-        const oz = -0.1;
+        // Seats on the bench (boat-local x, z).
+        const ox = kind === "princess" ? -0.27 : 0.27;
+        const oz = -0.12;
         const c = Math.cos(bp.yaw);
         const sn = Math.sin(bp.yaw);
-        s.pos.set(bp.x + ox * c + oz * sn, bp.y + 0.12, bp.z - ox * sn + oz * c);
+        s.pos.set(bp.x + ox * c + oz * sn, bp.y + 0.07, bp.z - ox * sn + oz * c);
         riding = true;
         rideYaw = bp.yaw;
       }
@@ -122,7 +125,7 @@ export function Person({ kind, tour }: { kind: Kind; tour: TourState }) {
     s.move += ((moving ? 1 : 0) - s.move) * Math.min(1, dt * 12);
     s.kneel += ((p.pose === "kneel" && !moving ? 1 : 0) - s.kneel) * k;
     s.hug += ((p.pose === "hug" && !moving ? 1 : 0) - s.hug) * k;
-    s.sit += ((riding ? 1 : 0) - s.sit) * k;
+    s.sit += ((riding || (p.pose === "sit" && !moving) ? 1 : 0) - s.sit) * k;
     if (moving) s.walk += dt * 12;
 
     root.current.position.copy(s.pos);
@@ -130,14 +133,14 @@ export function Person({ kind, tour }: { kind: Kind; tour: TourState }) {
 
     const swing = Math.sin(s.walk) * 0.75 * s.move;
     const breathe = Math.sin(t * 2 + (kind === "prince" ? 1 : 0)) * 0.012;
-    legL.current.rotation.x = swing - s.kneel * 1.3;
-    legR.current.rotation.x = -swing + s.kneel * 0.2;
-    armL.current.rotation.x = -swing * 0.9 - s.hug * 1.25 - s.kneel * 0.2;
-    armR.current.rotation.x = swing * 0.9 - s.hug * 1.25 - s.kneel * 1.1;
+    legL.current.rotation.x = swing - s.kneel * 1.3 - s.sit * 1.45;
+    legR.current.rotation.x = -swing + s.kneel * 0.2 - s.sit * 1.45;
+    armL.current.rotation.x = -swing * 0.9 - s.hug * 1.25 - s.kneel * 0.2 - s.sit * 0.45;
+    armR.current.rotation.x = swing * 0.9 - s.hug * 1.25 - s.kneel * 1.1 - s.sit * 0.45;
     armL.current.rotation.z = s.hug * 0.55 + 0.08;
     armR.current.rotation.z = -s.hug * 0.55 - 0.08;
     body.current.position.y =
-      Math.abs(Math.sin(s.walk)) * 0.07 * s.move - s.kneel * 0.3 - s.sit * 0.28 + breathe;
+      Math.abs(Math.sin(s.walk)) * 0.07 * s.move - s.kneel * 0.3 - s.sit * 0.08 + breathe;
     body.current.rotation.x = s.kneel * 0.12 + s.hug * 0.08;
     body.current.position.z = s.hug * 0.05;
 
@@ -267,15 +270,19 @@ function RoseInHand({ tour }: { tour: TourState }) {
     g.current.visible = k > 0.01;
     g.current.scale.setScalar(k);
   });
+  const rose = useMemo(() => makeRoseGeometry(), []);
+  const leaf = useMemo(() => makeLeafGeometry(), []);
   return (
-    <group ref={g} position={[0, -0.42, 0.06]} rotation-x={0.4}>
-      <mesh position={[0, 0.1, 0]}>
-        <cylinderGeometry args={[0.012, 0.012, 0.32, 5]} />
+    <group ref={g} position={[0, -0.42, 0.06]} rotation-x={0.5}>
+      <mesh position={[0, 0.12, 0]}>
+        <cylinderGeometry args={[0.014, 0.016, 0.42, 6]} />
         <meshStandardMaterial color="#3f8f45" />
       </mesh>
-      <mesh position={[0, 0.28, 0]}>
-        <sphereGeometry args={[0.07, 10, 8]} />
-        <meshStandardMaterial color="#e0284f" />
+      <mesh geometry={leaf} position={[0.01, 0.06, 0]} rotation={[0, 0.4, -0.9]} scale={0.22}>
+        <meshStandardMaterial color="#4f9a45" side={THREE.DoubleSide} />
+      </mesh>
+      <mesh geometry={rose} position={[0, 0.32, 0]} scale={0.26}>
+        <meshStandardMaterial vertexColors roughness={0.55} side={THREE.DoubleSide} />
       </mesh>
     </group>
   );

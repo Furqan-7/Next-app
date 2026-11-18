@@ -1,5 +1,6 @@
 "use client";
 
+import { PerformanceMonitor } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -22,6 +23,16 @@ export default function Experience() {
   });
   const [auto, setAuto] = useState(false);
   const [music, setMusic] = useState(false);
+  const [dpr, setDpr] = useState<number | [number, number]>([1, 2]);
+  const [effects, setEffects] = useState(true);
+  // ?hq keeps full quality on any device (handy for screenshots); ?lq starts in the lighter mode.
+  const [forceHQ] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).has("hq"));
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("lq")) {
+      setDpr(1);
+      setEffects(false);
+    }
+  }, []);
   const tourRef = useRef(tour);
   tourRef.current = tour;
   const timer = useRef<number | undefined>(undefined);
@@ -120,12 +131,24 @@ export default function Experience() {
       <Canvas
         className="canvas"
         shadows={{ type: THREE.PCFShadowMap }}
-        flat
-        dpr={[1, 2]}
+        dpr={dpr}
         camera={{ fov: 50, near: 0.1, far: 1200, position: [0, 24, 52] }}
         gl={{ antialias: true, powerPreference: "high-performance" }}
+        onCreated={({ gl }) => {
+          gl.toneMapping = THREE.ACESFilmicToneMapping;
+          gl.toneMappingExposure = 0.92;
+        }}
       >
-        <Scene tour={tour} />
+        {/* Drop to a lighter mode on phones that can't keep up. */}
+        {!forceHQ && (
+          <PerformanceMonitor
+            onDecline={() => {
+              setDpr(1);
+              setEffects(false);
+            }}
+          />
+        )}
+        <Scene tour={tour} effects={effects} />
       </Canvas>
       <Overlay
         tour={tour}

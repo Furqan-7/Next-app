@@ -114,6 +114,12 @@ export const story = {
     signOff: "Forever your loyal subject,",
   },
   finaleLine: "Long live my princess",
+  /**
+   * Background song, looped seamlessly. public/song.mp3 holds "Tum Ho Toh" (Saiyaara)
+   * from 0:24.2 to 1:14.55, the same section the reference video loops.
+   * If the file is missing, a built-in music-box tune plays instead.
+   */
+  song: "/song.mp3",
 };
 
 export type Story = typeof story;

@@ -20,6 +20,17 @@ export const WALK_SPEED = 3.4;
 
 export const ISLAND_RADIUS = 16.2;
 export const WATER_Y = -0.25;
+export const BEACH_WIDTH = 2.4;
+
+/** Edge of the raised grass plateau at angle a (radians, atan2(z, x)). */
+export function plateauRadius(a: number) {
+  return ISLAND_RADIUS + 0.35 * Math.sin(3 * a + 1.3) + 0.25 * Math.sin(7 * a);
+}
+
+/** Edge of the sandy beach (where the water starts) at angle a. Mirrored in the water shader. */
+export function beachRadius(a: number) {
+  return ISLAND_RADIUS + BEACH_WIDTH + 0.9 * Math.sin(3 * a + 2.0) + 0.5 * Math.sin(5 * a + 0.7);
+}
 
 export const layout: Record<StopId, StopLayout> = {
   gates: {
@@ -43,8 +54,9 @@ export const layout: Record<StopId, StopLayout> = {
   tea: {
     cam: [-6.0, 3.4, 4.4],
     look: [-11, 1, 1.6],
-    princess: [-11.9, 0, 2.5],
-    prince: [-10.1, 0, 2.5],
+    // Seated on the two chairs either side of the table.
+    princess: [-12.1, 0.1, 1.5],
+    prince: [-9.9, 0.1, 1.5],
     face: [-11, 0.8, 1.5],
     duration: 2.4,
   },

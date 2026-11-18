@@ -25,6 +25,12 @@ Edit **`src/story.ts`**. It holds:
 
 Nothing else needs to change.
 
+### The song
+
+`public/song.mp3` is "Tum Ho Toh" (Saiyaara), cut from 0:24.2 to 1:14.55. That's the same section the reference video loops. It starts when she taps "Take the royal tour" and repeats with no gap.
+
+To use a different song, replace `public/song.mp3` (keep the name). If the file is missing, a built-in music-box tune plays instead. The song is commercially copyrighted, so a public site using it could get a takedown request; for anything beyond a personal gift, use a song you have the rights to.
+
 ## How it works
 
 | Part | File |
@@ -33,6 +39,7 @@ Nothing else needs to change.
 | On-screen UI: cards, controls, menu, letter, hold-to-crown button | `src/ui/Overlay.tsx`, `app/globals.css` |
 | Card illustrations (SVG) | `src/ui/Illustrations.tsx` |
 | Camera positions and where the characters stand at each stop | `src/scene/layout.ts` |
+| Footpath network, and the route-finding that keeps the characters on it | `src/scene/paths.ts` |
 | Sky, water, island, wind-swayed grass, trees, clouds | `src/scene/World.tsx` |
 | Castle, gates, rose garden, tea party, dragon, well, swan boat, easel, gazebo, throne | `src/scene/Props.tsx` |
 | Princess, prince and cat, with walking, hugging, kneeling and the boat ride | `src/scene/Characters.tsx` |

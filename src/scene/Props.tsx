@@ -1,9 +1,11 @@
 "use client";
 
+import { RoundedBox } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { emitHearts, makeHeartGeometry } from "./fx";
+import { makeRoseGeometry } from "./rose";
 import { boatPose } from "./layout";
 import { clamp01, easeInOut, easeOutBack, now, shared, since, type Acted } from "./util";
 
@@ -28,6 +30,59 @@ function useOnce() {
 
 /* ---------------- Castle ---------------- */
 
+const WALL_TOP = "#f0d3dd";
+const STONE_LIGHT = "#ebe2e8";
+const ROOF_ALT = "#c44f7c";
+
+/** Flat arch outline: a rectangle with a semicircle on top. Origin at the bottom centre. */
+function archShape(w: number, h: number) {
+  const s = new THREE.Shape();
+  s.moveTo(-w / 2, 0);
+  s.lineTo(w / 2, 0);
+  s.lineTo(w / 2, h);
+  s.absarc(0, h, w / 2, 0, Math.PI, false);
+  s.lineTo(-w / 2, 0);
+  return s;
+}
+
+const archCache = new Map<string, THREE.ExtrudeGeometry>();
+function archGeo(w: number, h: number, depth: number) {
+  const key = `${w.toFixed(3)}:${h.toFixed(3)}:${depth}`;
+  let g = archCache.get(key);
+  if (!g) {
+    g = new THREE.ExtrudeGeometry(archShape(w, h), { depth, bevelEnabled: false, curveSegments: 12 });
+    archCache.set(key, g);
+  }
+  return g;
+}
+
+const goldMat = new THREE.MeshStandardMaterial({ color: GOLD, metalness: 0.65, roughness: 0.3 });
+
+/** A gold-framed arched window. Origin at the bottom centre of the glass; faces +z. */
+function ArchWindow({
+  position,
+  rotationY = 0,
+  w = 0.42,
+  h = 0.55,
+  glass,
+}: {
+  position: [number, number, number];
+  rotationY?: number;
+  w?: number;
+  h?: number;
+  glass: THREE.Material;
+}) {
+  return (
+    <group position={position} rotation-y={rotationY}>
+      <mesh geometry={archGeo(w + 0.14, h, 0.05)} position={[0, -0.07, -0.02]} material={goldMat} />
+      <mesh geometry={archGeo(w, h, 0.06)} material={glass} />
+      <mesh position={[0, -0.1, 0.08]} material={goldMat}>
+        <boxGeometry args={[w + 0.24, 0.06, 0.12]} />
+      </mesh>
+    </group>
+  );
+}
+
 function Tower({
   x,
   z,
@@ -35,6 +90,11 @@ function Tower({
   h,
   roofH,
   windowMat,
+  roof = PINK,
+  windows = [0.4, 0.68],
+  facing = 0,
+  banner = false,
+  balcony = false,
 }: {
   x: number;
   z: number;
@@ -42,42 +102,131 @@ function Tower({
   h: number;
   roofH: number;
   windowMat: THREE.Material;
+  roof?: string;
+  windows?: number[];
+  facing?: number;
+  banner?: boolean;
+  balcony?: boolean;
 }) {
   const flag = useRef<THREE.Mesh>(null!);
   useFrame((st) => {
     if (flag.current) flag.current.rotation.y = Math.sin(st.clock.elapsedTime * 3 + x) * 0.35;
   });
+  const crenels = Math.max(8, Math.round(r * 8));
+  const top = h + 0.5;
+  const fx = Math.sin(facing);
+  const fz = Math.cos(facing);
   return (
     <group position={[x, 0, z]}>
+      <mesh position={[0, 0.18, 0]} receiveShadow>
+        <cylinderGeometry args={[r * 1.12, r * 1.16, 0.36, 32]} />
+        <meshStandardMaterial color={STONE_LIGHT} roughness={0.9} />
+      </mesh>
       <mesh position={[0, h / 2, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[r, r * 1.05, h, 24]} />
-        <meshStandardMaterial color={WALL} roughness={0.9} />
+        <cylinderGeometry args={[r, r * 1.04, h, 32]} />
+        <meshStandardMaterial color={WALL} roughness={0.85} />
       </mesh>
-      <mesh position={[0, h + 0.12, 0]} castShadow>
-        <cylinderGeometry args={[r * 1.18, r * 1.18, 0.35, 24]} />
-        <meshStandardMaterial color="#f1d3dd" roughness={0.9} />
+      {/* gold band under the parapet */}
+      <mesh position={[0, h - 0.25, 0]} material={goldMat}>
+        <cylinderGeometry args={[r * 1.035, r * 1.035, 0.12, 32]} />
       </mesh>
-      <mesh position={[0, h + 0.3 + roofH / 2, 0]} castShadow>
-        <coneGeometry args={[r * 1.3, roofH, 24]} />
-        <meshStandardMaterial color={PINK} roughness={0.7} />
+      {/* corbelled parapet with crenels */}
+      <mesh position={[0, h, 0]} castShadow>
+        <cylinderGeometry args={[r * 1.18, r * 1.04, 0.35, 32]} />
+        <meshStandardMaterial color={WALL_TOP} roughness={0.85} />
       </mesh>
-      <mesh position={[0, h + 0.3 + roofH + 0.4, 0]}>
-        <cylinderGeometry args={[0.03, 0.03, 0.9, 6]} />
-        <meshStandardMaterial color={GOLD} />
+      {Array.from({ length: crenels }).map((_, i) => {
+        const a = (i / crenels) * Math.PI * 2;
+        return (
+          <mesh key={i} position={[Math.sin(a) * r * 1.12, h + 0.3, Math.cos(a) * r * 1.12]} rotation-y={a} castShadow>
+            <boxGeometry args={[r * 0.32, 0.26, 0.16]} />
+            <meshStandardMaterial color={WALL_TOP} roughness={0.85} />
+          </mesh>
+        );
+      })}
+      {/* roof */}
+      <mesh position={[0, top + roofH / 2, 0]} castShadow>
+        <coneGeometry args={[r * 1.08, roofH, 32]} />
+        <meshStandardMaterial color={roof} roughness={0.55} />
       </mesh>
-      <mesh ref={flag} position={[0, h + 0.3 + roofH + 0.7, 0]}>
-        <boxGeometry args={[0.02, 0.3, 0.55]} />
+      <mesh position={[0, top + 0.04, 0]} rotation-x={Math.PI / 2} material={goldMat}>
+        <torusGeometry args={[r * 1.06, 0.05, 8, 40]} />
+      </mesh>
+      {/* gold finial */}
+      <mesh position={[0, top + roofH + 0.06, 0]} material={goldMat}>
+        <sphereGeometry args={[0.1, 12, 10]} />
+      </mesh>
+      <mesh position={[0, top + roofH + 0.4, 0]} material={goldMat}>
+        <coneGeometry args={[0.04, 0.6, 8]} />
+      </mesh>
+      <mesh ref={flag} position={[0, top + roofH + 0.55, 0]}>
+        <boxGeometry args={[0.02, 0.28, 0.5]} />
         <meshStandardMaterial color={PINK_SOFT} />
       </mesh>
-      {[0.35, 0.62].map((f, i) => (
-        <mesh
+      {balcony && (
+        <group position-y={h * 0.76}>
+          <mesh rotation-x={Math.PI / 2} material={goldMat}>
+            <torusGeometry args={[r * 1.18, 0.05, 8, 40]} />
+          </mesh>
+          <mesh position-y={-0.15}>
+            <cylinderGeometry args={[r * 1.18, r * 1.0, 0.18, 32]} />
+            <meshStandardMaterial color={WALL_TOP} roughness={0.85} />
+          </mesh>
+        </group>
+      )}
+      {windows.map((f, i) => (
+        <ArchWindow
           key={i}
-          position={[0, h * f, r * 0.98]}
-          material={windowMat}
-        >
-          <boxGeometry args={[r * 0.35, r * 0.55, 0.08]} />
-        </mesh>
+          position={[fx * r * 0.99, h * f, fz * r * 0.99]}
+          rotationY={facing}
+          w={r * 0.36}
+          h={r * 0.42}
+          glass={windowMat}
+        />
       ))}
+      {banner && (
+        <group position={[fx * r * 1.0, h * 0.22, fz * r * 1.0]} rotation-y={facing}>
+          <mesh position-y={0.2}>
+            <boxGeometry args={[r * 0.5, 1.1, 0.04]} />
+            <meshStandardMaterial color={PINK} />
+          </mesh>
+          <mesh position={[0, -0.42, 0]} rotation-z={Math.PI / 4}>
+            <boxGeometry args={[r * 0.355, r * 0.355, 0.04]} />
+            <meshStandardMaterial color={PINK} />
+          </mesh>
+          <mesh position={[0, 0.35, 0.03]} material={goldMat}>
+            <circleGeometry args={[r * 0.14, 16]} />
+          </mesh>
+        </group>
+      )}
+    </group>
+  );
+}
+
+function StarEmblem(props: { position: [number, number, number] }) {
+  const geo = useMemo(() => {
+    const s = new THREE.Shape();
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2 + Math.PI / 2;
+      const r = i % 2 ? 0.16 : 0.36;
+      const x = Math.cos(a) * r;
+      const y = Math.sin(a) * r;
+      if (i === 0) s.moveTo(x, y);
+      else s.lineTo(x, y);
+    }
+    s.closePath();
+    return new THREE.ExtrudeGeometry(s, { depth: 0.06, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.02, bevelSegments: 1 });
+  }, []);
+  return (
+    <group position={props.position}>
+      <mesh position-z={-0.02}>
+        <circleGeometry args={[0.55, 32]} />
+        <meshStandardMaterial color={PINK} roughness={0.6} />
+      </mesh>
+      <mesh rotation-x={0} position-z={-0.01} material={goldMat}>
+        <torusGeometry args={[0.55, 0.05, 8, 40]} />
+      </mesh>
+      <mesh geometry={geo} material={goldMat} />
     </group>
   );
 }
@@ -86,9 +235,11 @@ export function Castle({ acted, lit }: P & { lit: boolean }) {
   const windowMat = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: "#7c5a8a",
-        emissive: new THREE.Color("#ffd27a"),
+        color: "#6f5a86",
+        emissive: new THREE.Color("#ffcf7a"),
         emissiveIntensity: 0.05,
+        roughness: 0.25,
+        metalness: 0.2,
       }),
     [],
   );
@@ -100,8 +251,8 @@ export function Castle({ acted, lit }: P & { lit: boolean }) {
     const target = lit ? 1 : 0;
     const k = e != null ? clamp01(e / 1.6) : target;
     const v = Math.max(target * (e != null ? k : 1), 0);
-    windowMat.emissiveIntensity += (0.05 + v * 1.6 - windowMat.emissiveIntensity) * 0.08;
-    windowMat.color.set(v > 0.3 ? "#ffe2a8" : "#7c5a8a");
+    windowMat.emissiveIntensity += (0.05 + v * 2.6 - windowMat.emissiveIntensity) * 0.08;
+    windowMat.color.set(v > 0.3 ? "#ffe2a8" : "#6f5a86");
     if (doorGlow.current) doorGlow.current.intensity = v * 6;
     if (e != null && e > 0.6)
       once("castle", acted.castle!, () => {
@@ -110,78 +261,100 @@ export function Castle({ acted, lit }: P & { lit: boolean }) {
   });
 
   const crenels = useMemo(() => {
-    const out: [number, number, number][] = [];
-    for (let x = -3.6; x <= 3.6; x += 0.9) out.push([x, 6.25, -8.55]);
-    for (let z = -9.4; z >= -14.2; z -= 0.9) {
-      out.push([-3.85, 6.25, z]);
-      out.push([3.85, 6.25, z]);
+    const out: [number, number, number, number][] = [];
+    for (let x = -3.55; x <= 3.6; x += 0.71) out.push([x, 6.32, -8.6, 0]);
+    for (let z = -9.3; z >= -14.2; z -= 0.71) {
+      out.push([-3.9, 6.32, z, Math.PI / 2]);
+      out.push([3.9, 6.32, z, Math.PI / 2]);
     }
+    for (let x = -2.2; x <= 2.25; x += 0.62) out.push([x, 8.6, -10.2, 0]);
     return out;
   }, []);
 
+  const frontWindows: [number, number, number, number][] = [
+    [-2.5, 1.9, 0.5, 0.75],
+    [2.5, 1.9, 0.5, 0.75],
+    [-2.5, 4.3, 0.42, 0.6],
+    [2.5, 4.3, 0.42, 0.6],
+    [-1.2, 4.6, 0.36, 0.5],
+    [1.2, 4.6, 0.36, 0.5],
+  ];
+
   return (
     <group>
-      {/* Keep */}
-      <mesh position={[0, 3, -11.5]} castShadow receiveShadow>
-        <boxGeometry args={[8, 6, 6]} />
-        <meshStandardMaterial color={WALL} roughness={0.9} />
+      {/* Stone plinth */}
+      <mesh position={[0, 0.17, -11.6]} receiveShadow castShadow>
+        <boxGeometry args={[10.6, 0.34, 7.0]} />
+        <meshStandardMaterial color={STONE_LIGHT} roughness={0.9} />
       </mesh>
-      {crenels.map((p, i) => (
-        <mesh key={i} position={p} castShadow>
-          <boxGeometry args={[0.45, 0.5, 0.45]} />
-          <meshStandardMaterial color="#f1d3dd" roughness={0.9} />
+      {/* Keep */}
+      <mesh position={[0, 3.1, -11.5]} castShadow receiveShadow>
+        <boxGeometry args={[8, 6, 6]} />
+        <meshStandardMaterial color={WALL} roughness={0.85} />
+      </mesh>
+      {/* Cornice and gold band */}
+      <mesh position={[0, 6.05, -11.5]} castShadow>
+        <boxGeometry args={[8.3, 0.22, 6.3]} />
+        <meshStandardMaterial color={WALL_TOP} roughness={0.85} />
+      </mesh>
+      <mesh position={[0, 5.75, -8.47]} material={goldMat}>
+        <boxGeometry args={[8.02, 0.1, 0.04]} />
+      </mesh>
+      {crenels.map(([x, y, z, ry], i) => (
+        <mesh key={i} position={[x, y, z]} rotation-y={ry} castShadow>
+          <boxGeometry args={[0.36, 0.4, 0.3]} />
+          <meshStandardMaterial color={WALL_TOP} roughness={0.85} />
         </mesh>
       ))}
-      {/* Door */}
-      <group position={[0, 0, -8.46]}>
-        <mesh position={[0, 1.2, 0]}>
-          <boxGeometry args={[1.7, 2.4, 0.1]} />
-          <meshStandardMaterial color="#a8456e" roughness={0.7} />
+      {/* Upper hall, for a stepped silhouette */}
+      <mesh position={[0, 7.3, -12.1]} castShadow receiveShadow>
+        <boxGeometry args={[5, 2.4, 3.8]} />
+        <meshStandardMaterial color={WALL} roughness={0.85} />
+      </mesh>
+      <mesh position={[0, 8.45, -12.1]}>
+        <boxGeometry args={[5.25, 0.18, 4.05]} />
+        <meshStandardMaterial color={WALL_TOP} roughness={0.85} />
+      </mesh>
+      {[-1.5, 0, 1.5].map((x) => (
+        <ArchWindow key={x} position={[x, 6.6, -10.17]} w={0.4} h={0.55} glass={windowMat} />
+      ))}
+      {/* Front windows */}
+      {frontWindows.map(([x, y, w, h], i) => (
+        <ArchWindow key={i} position={[x, y, -8.46]} w={w} h={h} glass={windowMat} />
+      ))}
+      {/* Door with gold arch and emblem */}
+      <group position={[0, 0.34, -8.48]}>
+        <mesh geometry={archGeo(2.15, 2.0, 0.08)} position-z={-0.02} material={goldMat} />
+        <mesh geometry={archGeo(1.75, 1.85, 0.1)}>
+          <meshStandardMaterial color="#9b3f68" roughness={0.6} />
         </mesh>
-        <mesh position={[0, 2.4, 0]} rotation-x={Math.PI / 2}>
-          <cylinderGeometry args={[0.85, 0.85, 0.1, 24, 1, false, 0, Math.PI]} />
-          <meshStandardMaterial color="#a8456e" roughness={0.7} />
+        <mesh position={[0, 1.4, 0.12]}>
+          <boxGeometry args={[0.04, 2.6, 0.03]} />
+          <meshStandardMaterial color="#7a2f52" />
         </mesh>
-        <mesh position={[0, 2.4, 0.02]}>
-          <torusGeometry args={[0.92, 0.07, 8, 24, Math.PI]} />
-          <meshStandardMaterial color={GOLD} metalness={0.4} roughness={0.4} />
-        </mesh>
-        <mesh position={[0, 1.4, 0.07]}>
-          <sphereGeometry args={[0.07, 8, 8]} />
-          <meshStandardMaterial color={GOLD} metalness={0.5} roughness={0.3} />
-        </mesh>
-        <pointLight ref={doorGlow} position={[0, 2, 1]} color="#ffcf8a" intensity={0} distance={8} />
+        {[-0.18, 0.18].map((x) => (
+          <mesh key={x} position={[x, 1.25, 0.14]} material={goldMat}>
+            <torusGeometry args={[0.08, 0.02, 6, 14]} />
+          </mesh>
+        ))}
+        <pointLight ref={doorGlow} position={[0, 1.6, 1]} color="#ffcf8a" intensity={0} distance={8} />
       </group>
-      {/* Banners */}
-      {[-2.5, 2.5].map((x) => (
-        <group key={x} position={[x, 3.4, -8.45]}>
-          <mesh>
-            <boxGeometry args={[0.75, 1.9, 0.05]} />
-            <meshStandardMaterial color={PINK} />
-          </mesh>
-          <mesh position={[0, 0.25, 0.04]}>
-            <circleGeometry args={[0.24, 20]} />
-            <meshStandardMaterial color={GOLD} />
-          </mesh>
-          <mesh position={[0, -0.95, 0]} rotation-z={Math.PI / 4}>
-            <boxGeometry args={[0.53, 0.53, 0.05]} />
-            <meshStandardMaterial color={PINK} />
-          </mesh>
-        </group>
-      ))}
-      {/* Keep windows */}
-      {[-1.4, 1.4].map((x) => (
-        <mesh key={x} position={[x, 4.6, -8.46]} material={windowMat}>
-          <boxGeometry args={[0.5, 0.9, 0.06]} />
+      <StarEmblem position={[0, 3.75, -8.42]} />
+      {/* Steps */}
+      {[0, 1].map((i) => (
+        <mesh key={i} position={[0, 0.1 + i * 0.12, -7.9 - i * 0.3]} receiveShadow castShadow>
+          <boxGeometry args={[2.6 - i * 0.3, 0.2 + i * 0.12, 0.4]} />
+          <meshStandardMaterial color={STONE_LIGHT} roughness={0.9} />
         </mesh>
       ))}
-      <Tower x={-4.6} z={-8.9} r={1.25} h={7.5} roofH={3.2} windowMat={windowMat} />
-      <Tower x={4.6} z={-8.9} r={1.25} h={7.5} roofH={3.2} windowMat={windowMat} />
-      <Tower x={-4.4} z={-14.0} r={1.15} h={8.8} roofH={3.4} windowMat={windowMat} />
-      <Tower x={4.4} z={-14.0} r={1.15} h={8.8} roofH={3.4} windowMat={windowMat} />
-      <Tower x={0} z={-12.6} r={1.7} h={11} roofH={4.6} windowMat={windowMat} />
-      <Tower x={-2.1} z={-10.6} r={0.75} h={8.2} roofH={2.4} windowMat={windowMat} />
-      <Tower x={2.1} z={-10.6} r={0.75} h={8.2} roofH={2.4} windowMat={windowMat} />
+      {/* Towers */}
+      <Tower x={-4.6} z={-8.9} r={1.25} h={7.6} roofH={3.2} windowMat={windowMat} facing={-0.35} banner />
+      <Tower x={4.6} z={-8.9} r={1.25} h={7.6} roofH={3.2} windowMat={windowMat} facing={0.35} banner />
+      <Tower x={-4.4} z={-14.0} r={1.15} h={8.8} roofH={3.4} windowMat={windowMat} facing={-0.9} roof={ROOF_ALT} />
+      <Tower x={4.4} z={-14.0} r={1.15} h={8.8} roofH={3.4} windowMat={windowMat} facing={0.9} roof={ROOF_ALT} />
+      <Tower x={0} z={-13.0} r={1.6} h={11.6} roofH={4.6} windowMat={windowMat} windows={[0.82]} balcony />
+      <Tower x={-2.3} z={-10.4} r={0.7} h={9.4} roofH={2.4} windowMat={windowMat} windows={[0.78]} />
+      <Tower x={2.3} z={-10.4} r={0.7} h={9.4} roofH={2.4} windowMat={windowMat} windows={[0.78]} />
     </group>
   );
 }
@@ -301,6 +474,65 @@ const BUSHES: [number, number, number][] = [
   [-9.1, 10.0, 0.45],
 ];
 
+/** Rose positions on bushes and the arch: [x, y, z, nx, ny, nz, scale, pink?]. */
+function useRosePlacements() {
+  return useMemo(() => {
+    const out: [number, number, number, number, number, number, number, boolean][] = [];
+    BUSHES.forEach(([x, z, r], i) => {
+      const cy = r * 0.8;
+      for (let j = 0; j < 9; j++) {
+        const a = j * 2.39996 + i;
+        const up = 0.25 + ((j * 0.37) % 0.7);
+        const h = Math.sqrt(1 - up * up);
+        const nx = Math.cos(a) * h;
+        const nz = Math.sin(a) * h;
+        out.push([x + nx * r * 0.97, cy + up * r * 0.97, z + nz * r * 0.97, nx, up + 0.4, nz, 0.2 + (j % 3) * 0.03, j % 4 === 0]);
+      }
+    });
+    // Along the arch.
+    const ax = -6.2;
+    const az = 6.0;
+    const rot = 0.5;
+    for (let j = 0; j <= 12; j++) {
+      const t = (j / 12) * Math.PI;
+      const lx = Math.cos(t) * 1.2;
+      const ly = 1.0 + Math.sin(t) * 1.2;
+      const lz = (j % 2 ? 0.14 : -0.14);
+      const wx = ax + lx * Math.cos(rot) + lz * Math.sin(rot);
+      const wz = az - lx * Math.sin(rot) + lz * Math.cos(rot);
+      out.push([wx, ly, wz, Math.cos(t) * 0.5 + Math.sin(rot) * (j % 2 ? 1 : -1), Math.sin(t) + 0.3, Math.cos(rot) * (j % 2 ? 1 : -1), 0.2, j % 3 === 0]);
+    }
+    return out;
+  }, []);
+}
+
+function RoseInstances({ pink }: { pink: boolean }) {
+  const geo = useMemo(() => makeRoseGeometry(pink ? "#f27ca0" : "#d81f4a"), [pink]);
+  const placements = useRosePlacements().filter((p) => p[7] === pink);
+  return (
+    <instancedMesh
+      args={[geo, undefined, placements.length]}
+      castShadow
+      ref={(m) => {
+        if (!m || m.userData.done) return;
+        const o = new THREE.Object3D();
+        const up = new THREE.Vector3(0, 1, 0);
+        placements.forEach(([x, y, z, nx, ny, nz, sc], i) => {
+          o.position.set(x, y, z);
+          o.quaternion.setFromUnitVectors(up, new THREE.Vector3(nx, ny, nz).normalize());
+          o.scale.setScalar(sc);
+          o.updateMatrix();
+          m.setMatrixAt(i, o.matrix);
+        });
+        m.instanceMatrix.needsUpdate = true;
+        m.userData.done = true;
+      }}
+    >
+      <meshStandardMaterial vertexColors roughness={0.55} side={THREE.DoubleSide} />
+    </instancedMesh>
+  );
+}
+
 export function RoseGarden({ acted }: P) {
   const once = useOnce();
   useFrame(() => {
@@ -312,39 +544,35 @@ export function RoseGarden({ acted }: P) {
     <group>
       {BUSHES.map(([x, z, r], i) => (
         <group key={i} position={[x, r * 0.8, z]}>
-          <mesh castShadow>
-            <sphereGeometry args={[r, 14, 12]} />
+          <mesh castShadow receiveShadow>
+            <sphereGeometry args={[r, 18, 14]} />
+            <meshStandardMaterial color="#357d3c" roughness={0.9} />
+          </mesh>
+          <mesh position={[r * 0.55, -r * 0.25, r * 0.2]} castShadow>
+            <sphereGeometry args={[r * 0.65, 14, 10]} />
             <meshStandardMaterial color="#3f8f45" roughness={0.9} />
           </mesh>
-          {Array.from({ length: 7 }).map((_, j) => {
-            const a = j * 2.4 + i;
-            const y = Math.sin(j * 1.3) * 0.5;
-            const rr = Math.sqrt(1 - y * y) * r;
-            return (
-              <mesh key={j} position={[Math.cos(a) * rr, y * r, Math.sin(a) * rr]}>
-                <sphereGeometry args={[0.11, 8, 8]} />
-                <meshStandardMaterial color={j % 3 === 0 ? "#ff8fb1" : "#e0284f"} roughness={0.6} />
-              </mesh>
-            );
-          })}
+          <mesh position={[-r * 0.5, -r * 0.3, -r * 0.25]} castShadow>
+            <sphereGeometry args={[r * 0.6, 14, 10]} />
+            <meshStandardMaterial color="#2f7336" roughness={0.9} />
+          </mesh>
         </group>
       ))}
-      {/* Rose arch */}
+      {/* Rose arch on two posts */}
       <group position={[-6.2, 0, 6.0]} rotation-y={0.5}>
-        <mesh position={[0, 0, 0]}>
-          <torusGeometry args={[1.3, 0.14, 8, 28, Math.PI]} />
-          <meshStandardMaterial color="#3f8f45" />
+        {[-1.2, 1.2].map((x) => (
+          <mesh key={x} position={[x, 0.5, 0]} castShadow>
+            <cylinderGeometry args={[0.1, 0.12, 1.0, 10]} />
+            <meshStandardMaterial color="#3f8f45" roughness={0.9} />
+          </mesh>
+        ))}
+        <mesh position={[0, 1.0, 0]} castShadow>
+          <torusGeometry args={[1.2, 0.12, 10, 32, Math.PI]} />
+          <meshStandardMaterial color="#3f8f45" roughness={0.9} />
         </mesh>
-        {Array.from({ length: 9 }).map((_, j) => {
-          const a = (j / 8) * Math.PI;
-          return (
-            <mesh key={j} position={[Math.cos(a) * 1.3, Math.sin(a) * 1.3, 0.12]}>
-              <sphereGeometry args={[0.12, 8, 8]} />
-              <meshStandardMaterial color={j % 2 ? "#ff8fb1" : "#e0284f"} />
-            </mesh>
-          );
-        })}
       </group>
+      <RoseInstances pink={false} />
+      <RoseInstances pink />
     </group>
   );
 }
@@ -389,18 +617,26 @@ export function TeaParty({ acted }: P) {
       {/* Chairs */}
       {[-1, 1].map((s) => (
         <group key={s} position={[s * 1.2, 0, 0]} rotation-y={s * Math.PI / 2}>
-          <mesh position={[0, 0.48, 0]} castShadow>
-            <cylinderGeometry args={[0.32, 0.32, 0.08, 18]} />
-            <meshStandardMaterial color={PINK_SOFT} />
+          <mesh position={[0, 0.45, 0]} castShadow material={goldMat}>
+            <cylinderGeometry args={[0.36, 0.34, 0.06, 20]} />
           </mesh>
-          <mesh position={[0, 0.85, 0.3]} castShadow>
-            <boxGeometry args={[0.6, 0.7, 0.06]} />
-            <meshStandardMaterial color={PINK_SOFT} />
+          <mesh position={[0, 0.51, 0]} castShadow>
+            <cylinderGeometry args={[0.34, 0.34, 0.08, 20]} />
+            <meshStandardMaterial color={PINK_SOFT} roughness={0.8} />
           </mesh>
-          <mesh position={[0, 0.24, 0]}>
-            <cylinderGeometry args={[0.05, 0.05, 0.48, 6]} />
-            <meshStandardMaterial color={GOLD} />
+          <RoundedBox args={[0.62, 0.72, 0.08]} radius={0.04} position={[0, 0.9, 0.42]} castShadow>
+            <meshStandardMaterial color={PINK_SOFT} roughness={0.8} />
+          </RoundedBox>
+          <mesh position={[0, 1.3, 0.42]} rotation-x={Math.PI / 2} material={goldMat}>
+            <torusGeometry args={[0.16, 0.025, 6, 16]} />
           </mesh>
+          {[-0.24, 0.24].map((x) =>
+            [-0.24, 0.24].map((z) => (
+              <mesh key={`${x}${z}`} position={[x, 0.22, z]} material={goldMat}>
+                <cylinderGeometry args={[0.025, 0.02, 0.44, 6]} />
+              </mesh>
+            )),
+          )}
         </group>
       ))}
       {/* Cups */}
@@ -692,12 +928,18 @@ export function SwanBoat({ acted }: P) {
   const g = useRef<THREE.Group>(null!);
   const neckGeo = useMemo(() => {
     const curve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(0, 0.25, 0.55),
-      new THREE.Vector3(0, 0.75, 0.85),
-      new THREE.Vector3(0, 1.35, 0.7),
-      new THREE.Vector3(0, 1.6, 0.95),
+      new THREE.Vector3(0, 0.35, 0.95),
+      new THREE.Vector3(0, 0.9, 1.25),
+      new THREE.Vector3(0, 1.55, 1.05),
+      new THREE.Vector3(0, 1.85, 1.3),
     ]);
-    return new THREE.TubeGeometry(curve, 24, 0.11, 10, false);
+    return new THREE.TubeGeometry(curve, 32, 0.12, 12, false);
+  }, []);
+  // A bowl-shaped hull: the lower half of a squashed sphere, open at the top.
+  const hullGeo = useMemo(() => {
+    const h = new THREE.SphereGeometry(1, 36, 18, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
+    h.scale(0.95, 0.55, 1.35);
+    return h;
   }, []);
   useFrame((st) => {
     const e = since(acted, "swan");
@@ -708,49 +950,75 @@ export function SwanBoat({ acted }: P) {
       g.current.rotation.z = Math.sin(st.clock.elapsedTime * 1.5) * 0.03;
     }
     if (e != null && e > 1 && e < 6.4 && Math.random() < 0.04) {
-      emitHearts([p.x, p.y + 1.2, p.z], 1, 0.4, 0.8);
+      emitHearts([p.x, p.y + 1.4, p.z], 1, 0.4, 0.8);
     }
   });
   return (
     <group ref={g}>
-      <mesh position={[0, 0.1, 0]} scale={[0.85, 0.42, 1.25]} castShadow>
-        <sphereGeometry args={[1, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshStandardMaterial color="#ffffff" roughness={0.6} side={THREE.DoubleSide} />
-      </mesh>
-      <mesh position={[0, 0.1, 0]} rotation-x={Math.PI}>
-        <sphereGeometry args={[0.86, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshStandardMaterial color="#ffffff" />
-      </mesh>
-      <mesh position={[0, 0.16, -0.1]} rotation-x={-Math.PI / 2}>
-        <circleGeometry args={[0.7, 20]} />
-        <meshStandardMaterial color={PINK_SOFT} />
-      </mesh>
+      <group position-y={0.45}>
+        {/* hull, white outside and soft pink inside */}
+        <mesh geometry={hullGeo} castShadow>
+          <meshStandardMaterial color="#ffffff" roughness={0.45} side={THREE.FrontSide} />
+        </mesh>
+        <mesh geometry={hullGeo} scale={0.96}>
+          <meshStandardMaterial color="#ffe1ea" roughness={0.7} side={THREE.BackSide} />
+        </mesh>
+        {/* gold rim */}
+        <mesh rotation-x={Math.PI / 2} scale={[0.95, 1.35, 1]} material={goldMat}>
+          <torusGeometry args={[1, 0.04, 8, 48]} />
+        </mesh>
+        {/* floor */}
+        <mesh position-y={-0.32} rotation-x={-Math.PI / 2} scale={[0.72, 1.0, 1]}>
+          <circleGeometry args={[1, 32]} />
+          <meshStandardMaterial color="#f7c6d6" />
+        </mesh>
+      </group>
+      {/* Cushioned bench for two, with a heart-topped backrest */}
+      <group position={[0, 0.2, -0.2]}>
+        <RoundedBox args={[1.1, 0.16, 0.5]} radius={0.06} position-y={0.18} castShadow>
+          <meshStandardMaterial color="#f48fb1" roughness={0.75} />
+        </RoundedBox>
+        <mesh position={[0, 0.08, 0]} material={goldMat}>
+          <boxGeometry args={[1.12, 0.06, 0.52]} />
+        </mesh>
+        <RoundedBox args={[1.1, 0.55, 0.12]} radius={0.05} position={[0, 0.5, -0.27]} castShadow>
+          <meshStandardMaterial color="#f48fb1" roughness={0.75} />
+        </RoundedBox>
+        <HeartBadge position={[0, 0.88, -0.27]} scale={0.55} />
+      </group>
+      {/* neck and head */}
       <mesh geometry={neckGeo} castShadow>
-        <meshStandardMaterial color="#ffffff" roughness={0.6} />
+        <meshStandardMaterial color="#ffffff" roughness={0.45} />
       </mesh>
-      <mesh position={[0, 1.62, 0.95]}>
-        <sphereGeometry args={[0.18, 14, 10]} />
-        <meshStandardMaterial color="#ffffff" roughness={0.6} />
+      <mesh position={[0, 1.88, 1.32]} castShadow>
+        <sphereGeometry args={[0.2, 18, 14]} />
+        <meshStandardMaterial color="#ffffff" roughness={0.45} />
       </mesh>
-      <mesh position={[0, 1.58, 1.18]} rotation-x={Math.PI / 2}>
-        <coneGeometry args={[0.07, 0.22, 8]} />
+      <mesh position={[0, 1.84, 1.57]} rotation-x={Math.PI / 2}>
+        <coneGeometry args={[0.075, 0.25, 10]} />
         <meshStandardMaterial color="#ffae42" />
       </mesh>
-      {[-0.09, 0.09].map((x) => (
-        <mesh key={x} position={[x * 1.5, 1.68, 1.05]}>
-          <sphereGeometry args={[0.025, 6, 6]} />
+      {[-1, 1].map((sx) => (
+        <mesh key={sx} position={[sx * 0.12, 1.94, 1.42]}>
+          <sphereGeometry args={[0.03, 8, 8]} />
           <meshStandardMaterial color="#222" />
         </mesh>
       ))}
-      {[-1, 1].map((s) => (
-        <mesh key={s} position={[s * 0.7, 0.35, -0.25]} rotation-z={s * 0.5} scale={[0.2, 0.45, 0.8]}>
-          <sphereGeometry args={[1, 12, 10]} />
-          <meshStandardMaterial color="#fff7fb" />
+      {/* little gold crown on the swan */}
+      <mesh position={[0, 2.08, 1.3]} material={goldMat}>
+        <cylinderGeometry args={[0.09, 0.08, 0.08, 12, 1, true]} />
+      </mesh>
+      {/* wings folded along the sides */}
+      {[-1, 1].map((sx) => (
+        <mesh key={sx} position={[sx * 0.88, 0.62, -0.15]} rotation={[0.25, 0, sx * 0.35]} scale={[0.16, 0.38, 0.95]} castShadow>
+          <sphereGeometry args={[1, 16, 12]} />
+          <meshStandardMaterial color="#fff7fb" roughness={0.5} />
         </mesh>
       ))}
-      <mesh position={[0, 0.55, -0.95]} rotation-x={0.5}>
-        <coneGeometry args={[0.3, 0.6, 10]} />
-        <meshStandardMaterial color="#ffffff" />
+      {/* tail feathers */}
+      <mesh position={[0, 0.72, -1.3]} rotation-x={-0.7}>
+        <coneGeometry args={[0.32, 0.55, 12]} />
+        <meshStandardMaterial color="#ffffff" roughness={0.5} />
       </mesh>
     </group>
   );

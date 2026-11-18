@@ -1,10 +1,12 @@
 "use client";
 
+import { PerformanceMonitor } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { startMusic, stopMusic } from "@/lib/music";
+import { preloadMusic, startMusic, stopMusic } from "@/lib/music";
 import { FINALE, layout, WALK_SPEED, type V3 } from "@/scene/layout";
+import { routeLength } from "@/scene/paths";
 import { Scene } from "@/scene/Scene";
 import { now, type TourState } from "@/scene/util";
 import { story } from "@/story";
@@ -21,6 +23,16 @@ export default function Experience() {
   });
   const [auto, setAuto] = useState(false);
   const [music, setMusic] = useState(false);
+  const [dpr, setDpr] = useState<number | [number, number]>([1, 2]);
+  const [effects, setEffects] = useState(true);
+  // ?hq keeps full quality on any device (handy for screenshots); ?lq starts in the lighter mode.
+  const [forceHQ] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).has("hq"));
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("lq")) {
+      setDpr(1);
+      setEffects(false);
+    }
+  }, []);
   const tourRef = useRef(tour);
   tourRef.current = tour;
   const timer = useRef<number | undefined>(undefined);
@@ -41,7 +53,7 @@ export default function Experience() {
     const l = layout[id];
     const dest = t.acted[id] != null && l.after ? l.after.princess : l.princess;
     const from = lastPos.current;
-    const dist = Math.hypot(dest[0] - from[0], dest[2] - from[2]);
+    const dist = routeLength([from[0], from[2]], [dest[0], dest[2]]);
     const ms = Math.max(1500, (dist / WALK_SPEED) * 1000 + 600);
     lastPos.current = dest;
     update({ ...t, phase: "tour", stopIndex: i, stopPhase: "travel" });
@@ -73,7 +85,7 @@ export default function Experience() {
   }, [goTo]);
 
   const start = useCallback(() => {
-    startMusic();
+    startMusic(story.song);
     setMusic(true);
     update({ ...tourRef.current, phase: "flyover" });
     schedule(() => update({ ...tourRef.current, phase: "tour", stopIndex: 0, stopPhase: "ready" }), 4300);
@@ -98,7 +110,7 @@ export default function Experience() {
   const toggleMusic = useCallback(() => {
     setMusic((m) => {
       if (m) stopMusic();
-      else startMusic();
+      else startMusic(story.song);
       return !m;
     });
   }, []);
@@ -113,18 +125,31 @@ export default function Experience() {
   }, [auto, tour.phase, tour.stopPhase, tour.stopIndex, act, next]);
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
+  useEffect(() => preloadMusic(story.song), []);
 
   return (
     <main className="stage">
       <Canvas
         className="canvas"
         shadows={{ type: THREE.PCFShadowMap }}
-        flat
-        dpr={[1, 2]}
+        dpr={dpr}
         camera={{ fov: 50, near: 0.1, far: 1200, position: [0, 24, 52] }}
         gl={{ antialias: true, powerPreference: "high-performance" }}
+        onCreated={({ gl }) => {
+          gl.toneMapping = THREE.ACESFilmicToneMapping;
+          gl.toneMappingExposure = 0.92;
+        }}
       >
-        <Scene tour={tour} />
+        {/* Drop to a lighter mode on phones that can't keep up. */}
+        {!forceHQ && (
+          <PerformanceMonitor
+            onDecline={() => {
+              setDpr(1);
+              setEffects(false);
+            }}
+          />
+        )}
+        <Scene tour={tour} effects={effects} />
       </Canvas>
       <Overlay
         tour={tour}
